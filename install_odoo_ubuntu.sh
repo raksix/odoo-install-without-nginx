@@ -56,22 +56,6 @@ sudo apt update
 sudo apt upgrade -y
 sudo apt autoremove -y
 
-#----------------------------------------------------
-# Disabing password authentication
-#----------------------------------------------------
-echo "=== Disabling password authentication ... ==="
-sudo apt -y install openssh-server
-sudo sed -i 's/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
-sudo sed -i 's/UsePAM yes/UsePAM no/' /etc/ssh/sshd_config 
-sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-sudo systemctl restart sshd
-
-#--------------------------------------------------
-# Setting up the timezones
-#--------------------------------------------------
-# set the correct timezone on ubuntu
-timedatectl set-timezone Africa/Kigali
-timedatectl
 
 #--------------------------------------------------
 # Installing PostgreSQL Server
