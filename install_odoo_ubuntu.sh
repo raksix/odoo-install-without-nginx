@@ -249,129 +249,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now $OE_USER.service
 sudo systemctl start $OE_USER.service
 
-#--------------------------------------------------
-# Install Nginx if needed
-#--------------------------------------------------
-echo "==== Installing nginx ... ===="
-if [ $INSTALL_NGINX = "True" ]; then
-  sudo apt install -y nginx
-  sudo systemctl enable nginx
-  
-echo "==== Configuring nginx ... ===="
-cat <<EOF > /etc/nginx/sites-available/$OE_USER
-
-# odoo server
- upstream $OE_USER {
- server 127.0.0.1:$OE_PORT;
-}
-
- upstream ${OE_USER}chat {
- server 127.0.0.1:$LONGPOLLING_PORT;
-}
-
-server {
-   listen 80;
-   server_name $WEBSITE_NAME;
-
-   # Specifies the maximum accepted body size of a client request,
-   # as indicated by the request header Content-Length.
-   client_max_body_size 500M;
-
-   # log
-   access_log /var/log/nginx/$OE_USER-access.log;
-   error_log /var/log/nginx/$OE_USER-error.log;
-
-   # add ssl specific settings
-   keepalive_timeout 90;
-
-   # increase proxy buffer to handle some Odoo web requests
-   proxy_buffers 16 64k;
-   proxy_buffer_size 128k;
-
-   proxy_read_timeout 720s;
-   proxy_connect_timeout 720s;
-   proxy_send_timeout 720s;
-  
-   # Add Headers for odoo proxy mode
-   proxy_set_header Host \$host;
-   proxy_set_header X-Forwarded-Host \$host;
-   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-   proxy_set_header X-Forwarded-Proto \$scheme;
-   proxy_set_header X-Real-IP \$remote_addr;
-
-   # Redirect requests to odoo backend server
-   location / {
-     proxy_redirect off;
-     proxy_pass http://$OE_USER;
-   }
-
-   # Redirect longpoll requests to odoo longpolling port
-   location /longpolling {
-       proxy_pass http://${OE_USER}chat;
-   }
-
-   # cache some static data in memory for 90mins
-   # under heavy load this should relieve stress on the Odoo web interface a bit.
-   location ~* /web/static/ {
-       proxy_cache_valid 200 90m;
-       proxy_buffering on;
-       expires 864000;
-       proxy_pass http://$OE_USER;
-  }
-
-  # common gzip
-  gzip_types text/css text/less text/plain text/xml application/xml application/json application/javascript;
-  gzip on;
-}
- 
-EOF
-
-  sudo mv ~/odoo /etc/nginx/sites-available/
-  sudo ln -s /etc/nginx/sites-available/$OE_USER /etc/nginx/sites-enabled/$OE_USER
-  sudo rm /etc/nginx/sites-enabled/default
-  sudo rm /etc/nginx/sites-available/default
-  
-  sudo systemctl reload nginx
-  sudo su root -c "printf 'proxy_mode = True\n' >> /etc/${OE_CONFIG}.conf"
-  echo "Done! The Nginx server is up and running. Configuration can be found at /etc/nginx/sites-available/$OE_USER"
-else
-  echo "===== Nginx isn't installed due to choice of the user! ========"
-fi
-
-#--------------------------------------------------
-# Enable ssl with certbot
-#--------------------------------------------------
-echo "==== Installing certbot certificate ... ===="
-if [ $INSTALL_NGINX = "True" ] && [ $ENABLE_SSL = "True" ]  && [ $WEBSITE_NAME != "example.com" ];then
-  sudo apt-get remove certbot
-  sudo snap install core
-  sudo snap refresh core
-  sudo snap install --classic certbot
-  sudo ln -s /snap/bin/certbot /usr/bin/certbot
-  sudo certbot --nginx -d $WEBSITE_NAME 
-  sudo systemctl reload nginx  
-  echo "============ SSL/HTTPS is enabled! ==========="
-else
-  echo "==== SSL/HTTPS isn't enabled due to choice of the user or because of a misconfiguration! ======"
-fi
-
-#--------------------------------------------------
-# UFW Firewall
-#--------------------------------------------------
-echo "=== Installation of UFW firewall ... ==="
-sudo apt install -y ufw 
-
-sudo ufw allow 'Nginx Full'
-sudo ufw allow 'Nginx HTTP'
-sudo ufw allow 'Nginx HTTPS'
-sudo ufw allow 22/tcp
-sudo ufw allow 6010/tcp
-#sudo ufw allow 5432//tcp
-sudo ufw allow 8069/tcp
-sudo ufw allow 8072/tcp
-sudo ufw enable -y
-
 clear
+
 
 # Final message
 # Check Odoo service status
@@ -390,9 +269,5 @@ echo "stop odoo service: sudo systemctl stop $OE_USER"
 echo "Restart Odoo service: sudo systemctl restart $OE_USER"
 echo "Odoo installation is complete. Access it at http://your-IP-address:8069"
 echo "========================================================================"
-
-if [ $INSTALL_NGINX = "True" ]; then
-  echo "Nginx configuration file: /etc/nginx/sites-available/$OE_USER"
-fi
 
 
